@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogo da Memória - Química Orgânica</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 200vh;
+            margin: 0;
+            background-color: #2c3e50;
+        }
+
+        #menu, #game {
+            text-align: center;
+            color: #2fb827;
+        }
+
+        #menu h1 {
+            font-size: 48px;
+            color: #2fb827;
+            text-shadow: 2px 2px 5px #2fb827;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 18px;
+            background-color: #006400;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #d35400;
+        }
+
+        #board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 140px);
+            gap: 20px;
+            margin-top: 10px;
+            justify-content: center;
+        }
+    
+ 
+
+       .card {
+    width: 100px;
+    height: 150px;
+    background-image: url('verso.jpg'); /* Imagem do verso */
+    background-size: cover;
+    background-position: center;
+    display: inline-block;
+    margin: 10px;
+    cursor: pointer;
+    transition: transform 0.5s ease; /* Adiciona animação para virar */
+    transform-style: preserve-3d; /* Efeito 3D para virada */
+}
+
+
+        .card.flipped {
+            background-color: #e74c3c;
+            transform: rotateY(180deg);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        #question {
+            margin-top: 20px;
+            background-color: #34495e;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        #options {
+            display: flex;
+            flex-direction: column;
+            margin-top: 10px;
+        }
+    
+
+
+        .option {
+            padding: 10px;
+            margin: 5px;
+            background-color: #006400;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+
+        .option:hover {
+            background-color: #d35400;
+        }
+
+        #score {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #ecf0f1;
+        }
+
+        #restartBtn {
+            margin-top: 20px;
+            padding: 10px;
+            font-size: 16px;
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #restartBtn:hover {
+            background-color: #c0392b;
+        }
+    </style>
+</head>
+<body>
+    <div id="menu">
+        <h1>Badawi Orgânico</h1>
+        <button id="startBtn">Iniciar Jogo</button>
+    </div>
+    <div id="game" class="hidden">
+        <div id="board"></div>
+        <div id="question" class="hidden">
+            <p id="questionText"></p>
+            <div id="options"></div>
+        </div>
+        <p id="score">Pontuação: 0</p>
+        <button id="restartBtn" class="hidden">Reiniciar</button>
+    </div>
+
+    <audio id="menuMusic" loop>
+        <source src="audio/menu-music.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="gameMusic" loop class="hidden">
+        <source src="audio/game-music.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="flipSound">
+        <source src="audio/card-flip.m4a" type="audio/mpeg">
+    </audio>
+    <audio id="correctSound">
+        <source src="audio/correct.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="wrongSound">
+        <source src="audio/wrong.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="buttonClickSound">
+        <source src="audio/button-click.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+  //nao mexe aqui
+        const startBtn = document.getElementById('startBtn');
+        const gameDiv = document.getElementById('game');
+        const menuDiv = document.getElementById('menu');
+        const boardDiv = document.getElementById('board');
+        const questionDiv = document.getElementById('question');
+        const questionText = document.getElementById('questionText');
+        const optionsDiv = document.getElementById('options');
+        const scoreText = document.getElementById('score');
+        const restartBtn = document.getElementById('restartBtn');
+
+        // Musica e fx
+        const menuMusic = document.getElementById('menuMusic');
+        const gameMusic = document.getElementById('gameMusic');
+        const flipSound = document.getElementById('flipSound');
+        const correctSound = document.getElementById('correctSound');
+        const wrongSound = document.getElementById('wrongSound');
+        const buttonClickSound = document.getElementById('buttonClickSound');
+
+    let firstCard = null;
+let lockBoard = false;
+let isQuestionActive = false;
+        let score = 0;
+        let flippedCards = [];
+        let pairsFound = 0;
+//muda as questoes e respostas aqui
+        const questions = {
+            'folha': [
+                { question: 'Teteu está observando uma folha de uma planta através de uma lupa. Intrigado com a complexidade da natureza, ele decide pesquisar mais sobre os compostos orgânicos que compõem as plantas. Qual das alternativas abaixo representa a principal função dos compostos orgânicos nas plantas?', options: ['Promover a fotossíntese e o crescimento.', 'Facilitar a locomoção da planta.', 'Regular a temperatura corporal.', 'Teteu não sabe usar uma lupa.'], correct: 'Promover a fotossíntese e o crescimento.' },
+                { question: 'Teteu, em sua jornada científica, decide aprofundar seus estudos sobre os compostos aromáticos presentes nas plantas. Ao analisar um extrato de uma espécie rara de orquídea, ele identifica um composto orgânico com um anel benzênico e um grupo funcional fenol. Qual das seguintes propriedades químicas é mais provável que esse composto apresente?', options: ['Alta solubilidade em água devido à presença do grupo hidroxila.', 'Caráter básico acentuado devido ao anel benzênico.', 'Capacidade de formar pontes de hidrogênio intermoleculares.', 'Teteu não prestou atenção nas aulas do prof.Rafael.'], correct: 'Capacidade de formar pontes de hidrogênio intermoleculares.' },
+                { question: 'Teteu está observando uma maçã que caiu da árvore. Ele sabe que a maçã é rica em um açúcar muito importante para nosso organismo. Qual é o nome desse açúcar e em qual tipo de molécula orgânica ele se encaixa?', options: ['Sacarose carboidrato.', 'Glicose proteína.', 'Frutose lipídio.', 'Teteu não gosta de maça'], correct: 'Sacarose carboidrato' }
+            ],
+            'pombos': [
+                { question: 'Teteu está alimentando pombos na praça. Ao fazer isso, ele está em contato com uma substância presente nas sementes que pode ser classificada como um composto orgânico. Qual das alternativas abaixo descreve corretamente a natureza dos compostos orgânicos que podem estar presentes nas sementes consumidas pelos pombos?', options: ['São compostos inorgânicos, pois não contêm carbono em sua estrutura.', 'São compostos orgânicos, porque contêm carbono e fazem parte dos processos biológicos naturais.', 'São compostos metálicos, encontrados em minerais, e não se relacionam com os seres vivos.', 'Teteu está envenenando os pombos'], correct: 'São compostos orgânicos, porque contêm carbono e fazem parte dos processos biológicos naturais.' },
+                { question: 'Teteu decide envenenar os pombos da praça usando uma substância química que afeta diretamente a respiração dos animais. Essa substância provavelmente interfere na função das mitocôndrias, estruturas responsáveis pela produção de energia nas células. Qual classe de compostos orgânicos é mais associada ao processo de liberação de energia celular e que poderia ser usada como veneno nesse caso?', options: ['Lipídios, que são fontes de energia armazenada e participam de processos biológicos essenciais.', 'Proteínas, que atuam no metabolismo celular e podem ser envolvidas no transporte de oxigênio.', 'Carboidratos, que são usados pelas células para produzir energia rapidamente.', 'Teteu foi atacado pelos pombos e morreu'], correct: 'Carboidratos, que são usados pelas células para produzir energia rapidamente.' },
+                { question: 'Teteu decide se alimentar junto com os pombos, consumindo as mesmas sementes. Após ingestão, Teteu não sente nada . Qual das alternativas abaixo descreve a principal classe de compostos orgânicos presente nas sementes que Teteu e os pombos utilizam como fonte de energia?', options: ['Ácidos graxos, que são utilizados para a construção de membranas celulares, mas não são fontes imediatas de energia.', 'Vitaminas, que são essenciais para a função enzimática, mas não fornecem energia direta ao organismo.', 'As sementes não foram suficientes para alimentar Teteu', 'Proteínas, que fornecem aminoácidos essenciais, mas são usadas principalmente para a construção de tecidos e enzimas.'], correct: 'As sementes não foram suficientes para alimentar Teteu' }
+            ],
+            'balanço': [
+                { question: 'Enquanto Teteu se balança na praça, uma jaca madura cai de uma árvore e acerta sua cabeça. Após o impacto, Teteu começa a sentir dor e desconforto. A dor que ele sente é causada pela liberação de substâncias químicas no seu corpo, como prostaglandinas, que são derivados de ácidos graxos. Qual das alternativas abaixo descreve corretamente o papel dos ácidos graxos no corpo humano?', options: ['Os ácidos graxos são usados apenas na produção de vitaminas e minerais essenciais para o organismo.', 'Os ácidos graxos são componentes fundamentais das proteínas, que ajudam no crescimento e reparação dos músculos.', 'Os ácidos graxos são os principais constituintes das membranas celulares e, quando modificados, podem formar substâncias que participam da resposta inflamatória.', 'Teteu desmaia de dor.'], correct: 'Os ácidos graxos são os principais constituintes das membranas celulares e, quando modificados, podem formar substâncias que participam da resposta inflamatória.' },
+                { question: 'Enquanto Teteu se balança tranquilamente na praça, de repente, um tubarão é lançado do alto de um edifício vizinho, aparentemente de forma mágica, e cai diretamente em cima dele! Após o impacto, Teteu percebe que o tubarão tem uma substância viscosa e oleosa cobrindo sua pele. Essa substância é rica em compostos orgânicos chamados lipídios. Qual é o principal papel dos lipídios no corpo do tubarão?', options: ['Lipídios atuam principalmente como componentes do DNA, sendo fundamentais para a reprodução do tubarão.', 'Lipídios formam uma camada protetora contra os danos causados pela radiação solar, ajudando na fotossíntese do tubarão.', 'Lipídios são a principal fonte de energia armazenada, servindo como reserva energética e isolamento térmico para o tubarão.', 'Teteu se alimenta do tubarão por inteiro e volta pra casa de bucho cheio'], correct: 'Lipídios são a principal fonte de energia armazenada, servindo como reserva energética e isolamento térmico para o tubarão.' },
+                { question: 'Enquanto Teteu estava se balançando na praça, ele perdeu o controle e, de forma inesperada, foi catapultado do balanço, atravessando uma rede de segurança nacional australiana e caindo diretamente em um tanque gigante de água com um tubarão nadando. Ao cair, Teteu entra em contato com o figado do tubarão, que é rico em esqualamina, uma substância orgânica com propriedades antimicrobianas. A esqualamina é uma molécula derivada de lipídios e pertence à classe dos terpenos. Qual das alternativas abaixo descreve corretamente a estrutura da esqualamina?', options: ['Teteu não se controla e come o tubarão', 'Teteu é devorado vivo ', 'A esqualamina possui uma cadeia longa e aberta, mas sua estrutura contém vários anéis de carbonos, formando uma molécula cíclica, composta por unidades de isopreno.', 'A esqualamina é uma molécula cíclica, com uma estrutura fechada, composta por múltiplos anéis benzênicos, típica de compostos aromáticos.'], correct: 'A esqualamina possui uma cadeia longa e aberta, mas sua estrutura contém vários anéis de carbonos, formando uma molécula cíclica, composta por unidades de isopreno.' }
+            ]
+        };
+
+        const images = ['folha', 'pombos', 'balanço'];
+        const cards = [...images, ...images];
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        function startGame() {
+            menuMusic.pause();
+            gameMusic.play();
+            buttonClickSound.play();
+            
+            menuDiv.classList.add('hidden');
+            gameDiv.classList.remove('hidden');
+            score = 0;
+            pairsFound = 0;
+            scoreText.textContent = `Pontuação: ${score}`;
+            restartBtn.classList.add('hidden');
+            shuffle(cards);
+            renderBoard();
+        }
+    
+    
+
+        function renderBoard() {
+            boardDiv.innerHTML = '';
+            cards.forEach((card, index) => {
+                const cardElement = document.createElement('div');
+                cardElement.classList.add('card');
+                cardElement.dataset.card = card;
+                cardElement.addEventListener('click', () => flipCard(cardElement));
+                boardDiv.appendChild(cardElement);
+            });
+        }
+
+        function flipCard(cardElement) {
+            if (lockBoard || cardElement === firstCard || cardElement.classList.contains('flipped') || isQuestionActive) return;
+
+            if (flippedCards.length < 2 && !cardElement.classList.contains('flipped')) {
+                cardElement.classList.add('flipped');
+                cardElement.style.backgroundImage = `url(${cardElement.dataset.card}.jpg)`;
+                flipSound.play();
+                flippedCards.push(cardElement);
+                if (flippedCards.length === 2) {
+                    checkMatch();
+                }
+            }
+        }
+
+        function checkMatch() {
+            isQuestionActive = true;
+            const [card1, card2] = flippedCards;
+            if (card1.dataset.card === card2.dataset.card) {
+                pairsFound++;
+                score += 0;
+                scoreText.textContent = `Pontuação: ${score}`;
+                correctSound.play();
+                showQuestion(card1.dataset.card);
+            } else {
+                setTimeout(() => {
+                    card1.classList.remove('flipped');
+                    card2.classList.remove('flipped');
+                    card1.style.backgroundImage = '';
+                    card2.style.backgroundImage = '';
+                    wrongSound.play();
+                    firstCard = null;
+        lockBoard = false;
+                    isQuestionActive = false;
+                }, 1000);
+            }
+            flippedCards = [];
+        }
+
+        function showQuestion(card) {
+            const questionSet = questions[card];
+            const randomQuestion = questionSet[Math.floor(Math.random() * questionSet.length)];
+            questionDiv.classList.remove('hidden');
+            questionText.textContent = randomQuestion.question;
+            optionsDiv.innerHTML = '';
+            randomQuestion.options.forEach(option => {
+                const optionBtn = document.createElement('button');
+                optionBtn.textContent = option;
+                optionBtn.classList.add('option');
+                optionBtn.addEventListener('click', () => {
+                    if (option === randomQuestion.correct) {
+                        score += 10;
+                        correctSound.play();
+                        isQuestionActive = false;
+                    } else {
+                        score -= 5;
+                        wrongSound.play();
+                        isQuestionActive = false;
+                    }
+                    scoreText.textContent = `Pontuação: ${score}`;
+                    questionDiv.classList.add('hidden');
+                    if (pairsFound === images.length) {
+                        restartBtn.classList.remove('hidden');
+                        gameMusic.pause();
+                    }
+                });
+                optionsDiv.appendChild(optionBtn);
+            });
+        }
+
+        startBtn.addEventListener('click', startGame);
+        restartBtn.addEventListener('click', () => {
+            buttonClickSound.play();
+            startGame();
+        });
+
+        window.onload = () => {
+            menuMusic.play();
+        };
+    </script>
+</body>
+</html>
